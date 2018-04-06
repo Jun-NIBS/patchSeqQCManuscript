@@ -21,6 +21,8 @@ annot<-getBM(c("ensembl_gene_id", "mgi_symbol", "chromosome_name", "strand", "st
 neuroelectro_ephys_vars = c("rin", "rmp","apthr","apamp",
                   "aphw", "tau", "ahpamp", "rheo","maxfreq", "cap", "adratio")
 
+detach("package:dplyr", unload=TRUE)
+library(dplyr)
 
 
 ### LOAD Cadwell dataset
@@ -41,6 +43,7 @@ cadwell_ephys = cadwell_ephys %>% dplyr::rename(rmp = vrest, rin = inputres, apt
 consensus_ephys_props = neuroelectro_ephys_vars[neuroelectro_ephys_vars %in% colnames(cadwell_ephys)]
 
 cadwell_ephys$num_idx = as.character(cadwell_ephys$idx)
+cadwell_ephys$has_ephys = T
 
 cadwell_joined = left_join(cadwell_meta, cadwell_ephys)
 # cadwell_joined = merge(cadwell_meta, cadwell_ephys)
@@ -65,7 +68,7 @@ cadwell_expr$geo_id = cadwell_expr$Comment.ENA_RUN.
 # load count matrices to calculate ERCC percentages
 
 cadwell_ercc = read.csv("data-raw/cadwell/countMatrix.ERCC", sep = '\t')
-cadwell_count_matrix = read.csv("data-raw/cadwell/E-MTAB-4092_counts.genes", sep = '\t')
+cadwell_count_matrix = read.csv("data-raw/cadwell/countMatrix.genes", sep = '\t')
 cadwell_readcounts = read.csv("data-raw/cadwell/E-MTAB-4092.readcount", sep = ',', header = F)
 cadwell_readcounts$geo_id = str_extract(cadwell_readcounts[, 1],'ERR[0-9]+')
 colnames(cadwell_readcounts)[2] = 'read_count'
@@ -102,12 +105,20 @@ cadwell_joined$major_type = factor(cadwell_joined$major_type, levels = c('eNGC',
 cadwell_joined[cadwell_joined$Characteristics.cell.type. == 'Layer I Interneuron' & is.na(cadwell_joined$major_type), 'major_type'] = 'Inh'
 cadwell_joined[cadwell_joined$Characteristics.cell.type. == 'Layer 2/3 Pyramidal' & is.na(cadwell_joined$major_type), 'major_type'] = 'Exc'
 
+cadwell_joined[cadwell_joined$major_type %in% c('eNGC', 'SBC', 'Inh'), 'broad_type'] = 'Inhibitory'
+cadwell_joined[cadwell_joined$major_type %in% c('Exc'), 'broad_type'] = 'Pyramidal'
+cadwell_joined$broad_type = factor(cadwell_joined$broad_type, levels = c('Inhibitory', 'Pyramidal'))
+
+cadwell_joined[cadwell_joined$broad_type %in% c('Inhibitory'), 'broad_type_colors'] = 'red'
+cadwell_joined[cadwell_joined$broad_type %in% c('Pyramidal'), 'broad_type_colors'] = 'turquoise'
+
 cadwell_joined$cell_id = make.names(cadwell_joined$major_type, unique = T)
 cadwell_joined$sample_id = cadwell_joined$Comment.ENA_RUN.
 
 cadwell_joined = cadwell_joined[!is.na(cadwell_joined$major_type), ] # remove 1 astrocyte sample
 
 cadwell_joined = cadwell_joined[order(cadwell_joined$cell_id), ]
+cadwell_joined[is.na(cadwell_joined$has_ephys), 'has_ephys'] = F
 
 
 
@@ -140,7 +151,6 @@ foldy_expr = merge(foldy_soft %>% select(sample_title, geo_id, sample_desc_name)
 rownames(foldy_expr) = foldy_expr$geo_id
 
 ### load count matrices for ercc calculation
-
 
 foldy_ercc <- read.csv("data-raw/foldy/countMatrix.ERCC", sep = '\t')
 foldy_counts <- read.csv("data-raw/foldy/GSE75386_counts.genes", sep = '\t')
@@ -176,6 +186,8 @@ foldy_ephys_data = foldy_ephys_data %>% separate(cell_id, c("num_id", "cell_id")
 foldy_ephys_data$rin = foldy_ephys_data$rin * 1000
 foldy_ephys_data$aphw = foldy_ephys_data$aphw * 100
 foldy_ephys_data$apwidth = foldy_ephys_data$apwidth * 100
+foldy_ephys_data$has_ephys = T
+
 
 consensus_ephys_props = neuroelectro_ephys_vars[neuroelectro_ephys_vars %in% colnames(foldy_ephys_data)]
 
@@ -203,12 +215,19 @@ foldy_j = foldy_j[!is.na(foldy_j$major_type), ] # remove bulk tissue samples
 foldy_j$major_type = mapvalues(foldy_j$major_type, from = c("FS-INT cells", "RS-INT cells", "CA1-PYR cells"), to = c("FS-INT", "RS-INT", "CA1-PYR"))
 foldy_j$major_type = factor(foldy_j$major_type, levels = c('BS-PYR', 'CA1-PYR', 'FS-INT', 'RS-INT', 'RS-PYR'))
 
+foldy_j[foldy_j$major_type %in% c('FS-INT', 'RS-INT'), 'broad_type'] = 'Inhibitory'
+foldy_j[foldy_j$major_type %in% c('BS-PYR', 'CA1-PYR', 'RS-PYR'), 'broad_type'] = 'Pyramidal'
+foldy_j$broad_type = factor(foldy_j$broad_type, levels = c('Inhibitory', 'Pyramidal'))
+foldy_j[foldy_j$broad_type %in% c('Inhibitory'), 'broad_type_colors'] = 'red'
+foldy_j[foldy_j$broad_type %in% c('Pyramidal'), 'broad_type_colors'] = 'turquoise'
+
 foldy_joined = foldy_j
 
 foldy_joined$cell_id = make.names(foldy_joined$major_type, unique = T)
 foldy_joined$sample_id = foldy_joined$geo_id
 
 foldy_joined = foldy_joined[order(foldy_joined$cell_id), ]
+foldy_joined[is.na(foldy_joined$has_ephys), 'has_ephys'] = F
 
 foldy_ob = list(joined_df = foldy_joined, gene_names = foldy_gene_names, ephys_names = consensus_ephys_props)
 
@@ -216,6 +235,8 @@ foldy_ob = list(joined_df = foldy_joined, gene_names = foldy_gene_names, ephys_n
 ### Load Fuzik
 
 print('Loading Fuzik dataset')
+
+FUZIK_NORM_FACTOR = 1E3 # normalize to 10,000 counts per cell, not CPM
 
 soft_file = 'data-raw/fuzik/GSE70844_family.soft'
 fuzik_meta = softParser(soft_file)
@@ -249,6 +270,8 @@ fuzik_ephys_cleaned = fuzik_ephys_cleaned %>% dplyr::rename(rmp = Vrest, rin = R
                                                             rheo = Rheobasic.current.step, adratio = Adaptation.2ndlast.2XTHR) %>%
   mutate(cap = tau / rin * 1000 , adratio = 1/adratio)
 fuzik_ephys_cleaned$adratio[is.infinite(fuzik_ephys_cleaned$adratio)] = NA # map inf adratios to NA
+fuzik_ephys_cleaned$has_ephys = T
+
 
 consensus_ephys_props = neuroelectro_ephys_vars
 
@@ -285,7 +308,7 @@ fuzik_expr_t = fuzik_expr[, -1] %>% t() %>% as.data.frame()
 cell_total_counts = fuzik_expr_t %>% rowSums()
 
 # normalize by total counts to molecules per million
-fuzik_expr_t = fuzik_expr_t *1E6 / cell_total_counts
+fuzik_expr_t = fuzik_expr_t *FUZIK_NORM_FACTOR / cell_total_counts
 fuzik_expr_t = fuzik_expr_t + 1
 
 colnames(fuzik_expr_t) = lapply(fuzik_expr[, 1], make.names) %>% unlist
@@ -303,6 +326,13 @@ fuzik_joined[str_detect(fuzik_joined$sub_type, 'T'), 'colors'] = 'purple'
 fuzik_joined[str_detect(fuzik_joined$sub_type, 'L'), 'major_type'] = 'Exc'
 fuzik_joined[str_detect(fuzik_joined$sub_type, 'T'), 'major_type'] = 'Inh'
 fuzik_joined$major_type = factor(fuzik_joined$major_type, levels = c('Exc', 'Inh'))
+
+fuzik_joined[fuzik_joined$major_type %in% c('Inh'), 'broad_type'] = 'Inhibitory'
+fuzik_joined[fuzik_joined$major_type %in% c('Exc'), 'broad_type'] = 'Pyramidal'
+fuzik_joined$broad_type = factor(fuzik_joined$broad_type, levels = c('Inhibitory', 'Pyramidal'))
+fuzik_joined[fuzik_joined$broad_type %in% c('Inhibitory'), 'broad_type_colors'] = 'red'
+fuzik_joined[fuzik_joined$broad_type %in% c('Pyramidal'), 'broad_type_colors'] = 'turquoise'
+
 # fuzik_joined$broad_type = df <- data.frame(matrix(unlist(fuzik_joined[, consensus_ephys_props]), nrow=nrow(fuzik_joined), byrow=F), stringsAsFactors = F)
 # fuzik_joined[, consensus_ephys_props] = df
 fuzik_joined = fuzik_joined %>% arrange(major_type) # sort by cell type
@@ -311,6 +341,8 @@ fuzik_joined$cell_id = make.names(fuzik_joined$major_type, unique = T)
 fuzik_joined$sample_id = fuzik_joined$sample.name
 
 fuzik_joined = fuzik_joined[order(fuzik_joined$cell_id), ]
+fuzik_joined[is.na(fuzik_joined$has_ephys), 'has_ephys'] = F
+
 
 fuzik_ob = list(joined_df = fuzik_joined, gene_names = fuzik_gene_names, ephys_names = consensus_ephys_props)
 

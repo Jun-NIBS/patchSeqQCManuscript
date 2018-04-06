@@ -1,4 +1,6 @@
 source('R/corr_funcs.R')
+detach("package:dplyr", unload=TRUE)
+library(dplyr)
 
 print('Loading data frame with aibs / Tasic ephys and expression data summarized to the cre-line and layer level')
 aibs_cre_joined = readRDS('data/aibs_cre_expr_ephys.rda')

@@ -83,6 +83,7 @@ aibs_cre_joined = left_join(aibs_cre_joined, aibs_ephys_filt_stats %>% select(-c
 
 sample_size_weights = apply(cbind(aibs_cre_joined$num_cells_ephys, aibs_cre_joined$num_cells_expr), 1, function(x) sqrt(harmonic.mean(x)))
 aibs_cre_joined$sample_size_weights = sample_size_weights
+aibs_cre_joined$weights = sample_size_weights
 aibs_cre_joined = aibs_cre_joined %>% mutate('broad_type' = case_when(.$prop_exc > .5 ~ 'Exc', TRUE ~ "Inh"))
 aibs_cre_joined$broad_type_colors = 'red'
 aibs_cre_joined$broad_type_colors[aibs_cre_joined$broad_type == 'Exc'] = 'turquoise'
