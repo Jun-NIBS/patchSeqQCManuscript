@@ -1,4 +1,5 @@
 library(scales)
+library(ggrepel)
 print('Counting numbers of genes expressed per patch seq dataset')
 
 ### set up num genes per dataset figure
@@ -25,13 +26,13 @@ p0 = ggplot(joined_df, aes(x = ercc_pct, y = num_genes)) + geom_smooth(method = 
 p1 = ggplot(data = dfs_meta, aes(x = dataset, y = num_genes)) + geom_violin() + ylab('Detected genes') + xlab('Dataset')
 p2 = ggplot(joined_df, aes(x = contam_sum, y = num_genes)) + geom_smooth(method = "lm", se = F, linetype = 1, color = 'grey') + 
   geom_point(size = 2, alpha = .6) + scale_color_identity() + 
-  xlab('Cell contamination (AU)') + ylab('Detected genes')
+  xlab('Contamination score (AU)') + ylab('Detected genes')
 
 
 ## calculate ercc percents for tasic data
 tasic_df = aibsExprDataDf %>% select(one_of(c('sample_title', 'read_count', 'num_genes', 'ercc_counts', 'td_tomato_pct')))
 rownames(tasic_df) = tasic_df$sample_title
-tasic_df = tasic_df %>% mutate(ercc_pct = ercc_counts/read_count) 
+tasic_df = tasic_df %>% mutate(ercc_pct = 100 * ercc_counts/read_count) 
 
 tasic_df = cbind(tasic_df, aibs_contam_all_sub)
 tasic_ndnf_num_genes_df = tasic_df %>% filter(contam_type == 'Ndnf_on')
@@ -42,21 +43,22 @@ aibs_med_exprs$contam_type
 contam_sum = normalizeContamSum(tasic_ndnf_num_genes_df, aibs_med_exprs, compare_cell_types_inh)
 tasic_ndnf_num_genes_df$contam_sum = contam_sum
 
-cadwell_model = lm(num_genes ~ log10(read_count) + log10(ercc_pct) +contam_sum, data = patch_seq_datasets$cadwell$joined_df[patch_seq_datasets$cadwell$joined_df$major_type %in% c('eNGC', 'SBC'), ])
+cadwell_df = patch_seq_datasets$cadwell$joined_df[patch_seq_datasets$cadwell$joined_df$major_type %in% c('eNGC', 'SBC'), c('num_genes', 'read_count', 'ercc_pct', 'contam_sum')]
+cadwell_model = lm(num_genes ~ log10(read_count) + log10(ercc_pct) +contam_sum, data = cadwell_df)
 tasic_ndnf_model = lm(num_genes ~ log10(read_count) + log10(ercc_pct) +contam_sum, data = tasic_ndnf_num_genes_df)
 
 afss <- anova(tasic_ndnf_model)$"Sum Sq"
 rsq = summary(tasic_ndnf_model)$r.squared
 
-var_exp_df_tasic = data.frame(variable = c('Read count', 'Spike-in ratio', 'Contamination', 'Residual'))
-var_exp_df_tasic = cbind(var_exp_df_tasic, percent_exp =(afss/sum(afss))/rsq*100)
+var_exp_df_tasic = data.frame(variable = c('Library size', 'Spike-in ratio', 'Contam score', 'Residual'))
+var_exp_df_tasic = cbind(var_exp_df_tasic, percent_exp =(afss/sum(afss))/rsq*100, var_exp = (afss/sum(afss)) * 100)
 var_exp_df_tasic$dataset = 'Tasic Ndnf'
 
 afss <- anova(cadwell_model)$"Sum Sq"
 rsq = summary(cadwell_model)$r.squared
 
-var_exp_df_cadwell = data.frame(variable = c('Read count', 'Spike-in ratio', 'Contamination', 'Residual'))
-var_exp_df_cadwell = cbind(var_exp_df_cadwell, percent_exp =(afss/sum(afss))/rsq*100)
+var_exp_df_cadwell = data.frame(variable = c('Library size', 'Spike-in ratio', 'Contam score', 'Residual'))
+var_exp_df_cadwell = cbind(var_exp_df_cadwell, percent_exp =(afss/sum(afss))/rsq*100, var_exp = (afss/sum(afss)) * 100)
 var_exp_df_cadwell$dataset = 'Cadwell'
 
 var_exp_comb = rbind(var_exp_df_tasic, var_exp_df_cadwell)
@@ -66,10 +68,10 @@ var_exp_comb$dataset = factor(var_exp_comb$dataset, levels = c('Tasic Ndnf', 'Ca
 # drop residual term
 var_exp_comb = var_exp_comb[var_exp_comb$variable != 'Residual', ]
 
-var_exp_comb$variable = factor(var_exp_comb$variable, levels = c('Read count', 'Spike-in ratio', 'Contamination'))
+var_exp_comb$variable = factor(var_exp_comb$variable, levels = c('Library size', 'Spike-in ratio', 'Contam score'))
 
 # make a figure that summarizes variance explained
-var_exp_fig = ggplot(var_exp_comb, aes(x = variable, y = percent_exp, fill = dataset)) + geom_bar(stat = 'identity', position = 'dodge') + 
+var_exp_fig = ggplot(var_exp_comb, aes(x = variable, y = var_exp, fill = dataset)) + geom_bar(stat = 'identity', position = 'dodge') + 
   ylab('Var. Explained (norm. %)')+ theme(legend.position="top") + xlab('') + 
   scale_fill_manual("", values = c("Tasic Ndnf" = "grey80", "Cadwell" = "grey30"))
 
