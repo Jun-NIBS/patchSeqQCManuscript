@@ -65,7 +65,7 @@ cadwell_expr$geo_id = cadwell_expr$Comment.ENA_RUN.
 # load count matrices to calculate ERCC percentages
 
 cadwell_ercc = read.csv("data-raw/cadwell/countMatrix.ERCC", sep = '\t')
-cadwell_count_matrix = read.csv("data-raw/cadwell/E-MTAB-4092_counts.genes", sep = '\t')
+cadwell_count_matrix = read.csv("data-raw/cadwell/countMatrix.genes", sep = '\t')
 cadwell_readcounts = read.csv("data-raw/cadwell/E-MTAB-4092.readcount", sep = ',', header = F)
 cadwell_readcounts$geo_id = str_extract(cadwell_readcounts[, 1],'ERR[0-9]+')
 colnames(cadwell_readcounts)[2] = 'read_count'
