@@ -26,7 +26,7 @@ p0 = ggplot(joined_df, aes(x = ercc_pct, y = num_genes)) + geom_smooth(method = 
 p1 = ggplot(data = dfs_meta, aes(x = dataset, y = num_genes)) + geom_violin() + ylab('Detected genes') + xlab('Dataset')
 p2 = ggplot(joined_df, aes(x = contam_sum, y = num_genes)) + geom_smooth(method = "lm", se = F, linetype = 1, color = 'grey') + 
   geom_point(size = 2, alpha = .6) + scale_color_identity() + 
-  xlab('Cell contamination (AU)') + ylab('Detected genes')
+  xlab('Contamination score (AU)') + ylab('Detected genes')
 
 
 ## calculate ercc percents for tasic data
