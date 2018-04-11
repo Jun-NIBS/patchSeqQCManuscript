@@ -40,7 +40,7 @@ merged_ephys_gene_corrs = lapply(names(patch_seq_datasets), function(dataset_nam
   # print(paste('Calculating mean and variance of expression values for', dataset_name, 'genes'))
   dataset_stats_dfs = calculateMatrixGeneStats(expr_mat, gene_names) 
   
-  use_genes = dataset_stats_dfs %>% filter(mean_bin > MEAN_BIN_THRESHOLD, var_bin > 1) %>% select(gene) %>% unlist
+  use_genes = dataset_stats_dfs %>% filter(mean_bin > MEAN_BIN_THRESHOLD) %>% select(gene) %>% unlist
   
   print(paste('Calculating ephys and expression correlations for', dataset_name, 'data - with weighting'))
   
