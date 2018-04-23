@@ -200,7 +200,7 @@ calculateExprEphysWeightedCorrSpearman = function(expr_mat, ephys_mat, weights, 
       ephys_col = log10(ephys_col)
     }
     use_inds = !is.na(ephys_col)
-    t = wCorr::weightedCorr(x = use_expr_mat[use_inds, curr_gene], y = ephys_col[use_inds], method = 'Spearman', weights = weights[use_inds])
+    t = wCorr::weightedCorr(x = use_expr_mat[use_inds, curr_gene], y = ephys_col[use_inds], method = 'Spearman', weights = weights[use_inds, curr_gene])
     return(t)
 
   }, mc.cores = 40)
