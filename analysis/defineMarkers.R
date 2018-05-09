@@ -168,3 +168,8 @@ colnames(marker_df) = c('cell_type', 'gene')
 
 write.csv(marker_df, 'analysis/tables/markerGeneList.csv')
 
+markers= fullMarkerList
+
+saveRDS(markers, file = 'data/markers.rda')
+
+

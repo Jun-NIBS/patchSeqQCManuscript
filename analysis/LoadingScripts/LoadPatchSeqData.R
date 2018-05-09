@@ -42,7 +42,7 @@ consensus_ephys_props = neuroelectro_ephys_vars[neuroelectro_ephys_vars %in% col
 
 cadwell_ephys$num_idx = as.character(cadwell_ephys$idx)
 
-cadwell_joined = left_join(cadwell_meta, cadwell_ephys)
+cadwell_joined = dplyr::left_join(cadwell_meta, cadwell_ephys)
 # cadwell_joined = merge(cadwell_meta, cadwell_ephys)
 
 cadwell_expr = read.csv("data-raw/cadwell/tpmMatrix.genes", sep = '\t')
@@ -70,7 +70,7 @@ cadwell_readcounts = read.csv("data-raw/cadwell/E-MTAB-4092.readcount", sep = ',
 cadwell_readcounts$geo_id = str_extract(cadwell_readcounts[, 1],'ERR[0-9]+')
 colnames(cadwell_readcounts)[2] = 'read_count'
 
-cadwell_readcounts = cadwell_readcounts %>% select(geo_id, read_count)
+cadwell_readcounts = cadwell_readcounts %>% dplyr::select(geo_id, read_count)
 
 ercc_sum = colSums(cadwell_ercc[, -1])
 num_genes_count_matrix = colSums(cadwell_count_matrix[, -1] > 0)
@@ -81,7 +81,7 @@ ercc_df = merge(ercc_df, cadwell_readcounts)
 ercc_df$ercc_pct = 100 * ercc_df$ercc_sum / ercc_df$read_count
 ercc_df$ercc_pct_mapped = 100 * ercc_df$ercc_sum / ercc_df$read_count_mapped
 
-ercc_df = ercc_df %>% select(geo_id, ercc_sum, read_count, read_count_mapped, num_genes_count_matrix, ercc_pct, ercc_pct_mapped)
+ercc_df = ercc_df %>% dplyr::select(geo_id, ercc_sum, read_count, read_count_mapped, num_genes_count_matrix, ercc_pct, ercc_pct_mapped)
 
 cadwell_expr = merge(cadwell_expr, ercc_df)
 
@@ -109,10 +109,22 @@ cadwell_joined = cadwell_joined[!is.na(cadwell_joined$major_type), ] # remove 1 
 
 cadwell_joined = cadwell_joined[order(cadwell_joined$cell_id), ]
 
-
-
 cadwell_ob = list(joined_df = cadwell_joined, gene_names = cadwell_gene_names, ephys_names = consensus_ephys_props)
 
+### export data
+
+cadwell_expr = cadwell_joined[, cadwell_gene_names] %>% t()
+rownames(cadwell_expr) = make.names(cadwell_gene_names)
+colnames(cadwell_expr) = cadwell_joined$geo_id
+cadwell_expr = cadwell_expr -1
+
+devtools::use_data(cadwell_expr, overwrite = T)
+
+cadwell_meta = cadwell_joined[, c('geo_id', 'major_type', 'colors')]
+cadwell_meta = dplyr::left_join(cadwell_meta, ercc_df %>% dplyr::select(geo_id, read_count, ercc_sum, ercc_pct)) %>% 
+  dplyr::rename(sample_id = geo_id, ercc_count = ercc_sum)
+rownames(cadwell_meta) = c()
+devtools::use_data(cadwell_meta, overwrite = T)
 
 ### LOAD Foldy dataset
 print('Loading Foldy dataset')
