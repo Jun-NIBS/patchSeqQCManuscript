@@ -26,7 +26,7 @@ aibs_med_exprs = rbind(aibs_med_exprs_broad, aibs_med_exprs_sub[c('Ndnf_on', 'Sn
 #### calculate expected marker sums in Zeisel data
 print('Calculating marker expression for broad cell types in Zeisel')
 
-ZEISEL_NORM_FACTOR = 1E3
+ZEISEL_NORM_FACTOR = 1E6
 
 
 zeisel_expr = zeiselExprDataDf %>% as.data.frame()

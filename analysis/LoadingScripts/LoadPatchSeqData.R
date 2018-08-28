@@ -16,7 +16,7 @@ library(devtools)
 
 mart <- useDataset("mmusculus_gene_ensembl", useMart("ensembl"))
 
-annot<-getBM(c("ensembl_gene_id", "mgi_symbol", "chromosome_name", "strand", "start_position", "end_position","gene_biotype"), mart=mart)
+annot<-getBM(c("ensembl_gene_id", "mgi_symbol", "chromosome_name", "strand", "start_position", "end_position","gene_biotype", "entrezgene"), mart=mart)
 
 neuroelectro_ephys_vars = c("rin", "rmp","apthr","apamp",
                   "aphw", "tau", "ahpamp", "rheo","maxfreq", "cap", "adratio")
@@ -73,18 +73,20 @@ cadwell_readcounts = read.csv("data-raw/cadwell/E-MTAB-4092.readcount", sep = ',
 cadwell_readcounts$geo_id = str_extract(cadwell_readcounts[, 1],'ERR[0-9]+')
 colnames(cadwell_readcounts)[2] = 'read_count'
 
-cadwell_readcounts = cadwell_readcounts %>% select(geo_id, read_count)
+cadwell_readcounts = cadwell_readcounts %>% select(geo_id, read_count) %>% 
+  mutate(read_count = read_count / 4) # needed because counting lines in fastq file is 4x readcount
 
 ercc_sum = colSums(cadwell_ercc[, -1])
 num_genes_count_matrix = colSums(cadwell_count_matrix[, -1] > 0)
-read_count_mapped = colSums(cadwell_count_matrix[, -1])
-ercc_df = cbind(ercc_sum, num_genes_count_matrix, read_count_mapped) %>% data.frame() %>% tibble::rownames_to_column(var = "geo_id")
+exon_count = colSums(cadwell_count_matrix[, -1]) - ercc_sum
+ercc_df = cbind(ercc_sum, num_genes_count_matrix, exon_count) %>% data.frame() %>% tibble::rownames_to_column(var = "geo_id")
 
 ercc_df = merge(ercc_df, cadwell_readcounts)
 ercc_df$ercc_pct = 100 * ercc_df$ercc_sum / ercc_df$read_count
-ercc_df$ercc_pct_mapped = 100 * ercc_df$ercc_sum / ercc_df$read_count_mapped
+# ercc_df$ercc_pct_mapped = 100 * ercc_df$ercc_sum / ercc_df$read_count_mapped
 
-ercc_df = ercc_df %>% select(geo_id, ercc_sum, read_count, read_count_mapped, num_genes_count_matrix, ercc_pct, ercc_pct_mapped)
+ercc_df = ercc_df %>% select(geo_id, ercc_sum, read_count, exon_count, num_genes_count_matrix, ercc_pct) %>% 
+  mutate(exon_pct = 100 * exon_count / (read_count - ercc_sum))
 
 cadwell_expr = merge(cadwell_expr, ercc_df)
 
@@ -164,17 +166,21 @@ foldy_readcounts = read.csv("data-raw/foldy/GSE75386.readcount", sep = ',', head
 foldy_readcounts$geo_id = str_extract(foldy_readcounts[, 1],'GSM[0-9]+')
 colnames(foldy_readcounts)[2] = 'read_count'
 
-foldy_readcounts = foldy_readcounts %>% select(geo_id, read_count) %>% distinct(geo_id, read_count)
+foldy_readcounts = foldy_readcounts %>% select(geo_id, read_count) %>% distinct(geo_id, read_count)  %>% 
+  mutate(read_count = read_count / 4) # needed because counting lines in fastq file is 4x readcount
 
 ercc_sum = colSums(foldy_counts_combined[ercc_genes, -1])
 ercc_sum[ercc_sum < 1000] = NA # if less than 1000 ercc counts detected, call NA
+
+exon_count = colSums(foldy_counts_combined[, -1]) - ercc_sum
 num_genes_count_matrix = colSums(foldy_counts[, -1] > 0)
-ercc_df = cbind(ercc_sum, num_genes_count_matrix) %>% data.frame() %>% tibble::rownames_to_column(var = "geo_id")
+ercc_df = cbind(ercc_sum, num_genes_count_matrix, exon_count) %>% data.frame() %>% tibble::rownames_to_column(var = "geo_id")
 
 ercc_df = merge(ercc_df, foldy_readcounts) 
 ercc_df$ercc_pct = 100 * ercc_df$ercc_sum / ercc_df$read_count
 
-ercc_df = ercc_df %>% select(geo_id, ercc_sum, read_count, ercc_pct)
+ercc_df = ercc_df %>% select(geo_id, ercc_sum, read_count, ercc_pct, exon_count) %>% 
+  mutate(exon_pct = 100 * exon_count / (read_count - ercc_sum))
 
 foldy_expr = merge(foldy_expr, ercc_df)
 
@@ -236,7 +242,7 @@ foldy_ob = list(joined_df = foldy_joined, gene_names = foldy_gene_names, ephys_n
 
 print('Loading Fuzik dataset')
 
-FUZIK_NORM_FACTOR = 1E3 # normalize to 10,000 counts per cell, not CPM
+FUZIK_NORM_FACTOR = 1E6 # normalize to 10,000 counts per cell, not CPM
 
 soft_file = 'data-raw/fuzik/GSE70844_family.soft'
 fuzik_meta = softParser(soft_file)

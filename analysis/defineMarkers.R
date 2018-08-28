@@ -166,5 +166,12 @@ marker_df = do.call(rbind, lapply(seq_along(fullMarkerList), function(i){
 
 colnames(marker_df) = c('cell_type', 'gene')
 
+marker_df = left_join(marker_df, 
+                      annot %>% 
+                        mutate(gene = mgi_symbol) %>% 
+                        distinct(ensembl_gene_id, .keep_all = T)) %>% 
+  select(cell_type, gene, ensembl_gene_id, entrezgene  ) %>% 
+  distinct(gene, .keep_all = T)
+
 write.csv(marker_df, 'analysis/tables/markerGeneList.csv')
 

@@ -16,7 +16,7 @@ log_vars = c("rin", "tau", "aphw", "rheo", "maxfreq", "cap")
 inh_cell_types = which(aibs_cre_joined$broad_type == 'Inh')
 
 use_cell_types = which(aibs_cre_joined$broad_type %in% c('Exc', 'Inh'))
-aibs_expr_mat = aibs_cre_joined[use_cell_types,aibs_gene_names] %>% as.matrix
+aibs_expr_mat = aibs_cre_joined[use_cell_types,getValidGenes(aibs_gene_names, target_genes = colnames(aibs_cre_joined))] %>% as.matrix
 aibs_ephys_mat = aibs_cre_joined[use_cell_types,response_vars] %>% as.matrix
 
 aibs_expr_mat_sd = apply(aibs_expr_mat, 2, sd)

@@ -25,8 +25,9 @@ calculateMatrixGeneStats = function(joined_df, use_gene_list, num_mean_bins = 10
   var_expr = apply(expr_dataset, 2, function(x) var(log2(x)))
   std_expr = apply(expr_dataset, 2, function(x) sd(log2(x)))
   dropout_rate = apply(expr_dataset, 2, calcDropoutRate, 1)
+  nnz_cnt = nrow(expr_dataset) - (dropout_rate * nrow(expr_dataset))
   
-  stat_df = data.frame(as.matrix(cbind(mean_expr, var_expr, std_expr, dropout_rate))) %>% tibble::rownames_to_column(var = 'gene')
+  stat_df = data.frame(as.matrix(cbind(mean_expr, var_expr, std_expr, dropout_rate, nnz_cnt))) %>% tibble::rownames_to_column(var = 'gene')
   print(sum(mean_expr == 0))
 
   stat_df = stat_df %>% filter(mean_expr > log2(min_mean_expr)) %>% mutate(mean_bin = ntile(mean_expr, num_mean_bins))
