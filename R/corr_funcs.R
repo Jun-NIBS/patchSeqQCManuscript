@@ -152,20 +152,23 @@ prepareExprMatrix = function(input_data_matrix, gene_names, scale_columns = T, t
 
 calculateExprEphysWeightedCorr = function(expr_mat, ephys_mat, weights, ephys_var_names, log_ephys_vars){
   
-  # only perform calculation for genes with greater than 0 sd
-  expr_mat_sd = apply(expr_mat, 2, sd)
-  use_expr_mat = expr_mat[, expr_mat_sd > 0]
-  
-  # log10 transform expression data
-  use_expr_mat = log2(use_expr_mat)
-  
+
   all_corrs = mclapply(ephys_var_names, function(ephys_var){
     ephys_col = ephys_mat[, ephys_var]
     
     if (ephys_var %in% log_ephys_vars){
       ephys_col = log10(ephys_col)
     }
+    
     use_inds = !is.na(ephys_col)
+    # only perform calculation for genes with greater than 0 sd
+    expr_mat_sd = apply(expr_mat[use_inds, ], 2, sd)
+    use_expr_mat = expr_mat[, expr_mat_sd > 0]
+    
+    # log10 transform expression data
+    use_expr_mat = log2(use_expr_mat)
+    
+    
     t = wtd.cor(use_expr_mat[use_inds, ], ephys_col[use_inds], weights[use_inds])
     t_return = t %>% as.data.frame %>% tibble::rownames_to_column(var = 'gene')
     t_return$fdr = p.adjust(t_return$p.value, method = 'BH')
@@ -175,6 +178,76 @@ calculateExprEphysWeightedCorr = function(expr_mat, ephys_mat, weights, ephys_va
   all_corrs = bind_rows(all_corrs) %>% select(gene, ephys_prop, correlation, p.value, fdr) %>% rename(corr = correlation, pval = p.value)
   return(all_corrs)
 }
+
+calculateExprEphysWeightedCorrSpearman = function(expr_mat, ephys_mat, weights, ephys_var_names, log_ephys_vars){
+  
+  # only perform calculation for genes with greater than 0 sd
+  expr_mat_sd = apply(expr_mat, 2, sd)
+  use_expr_mat = expr_mat[, expr_mat_sd > 0]
+  
+  # log10 transform expression data
+  use_expr_mat = log2(use_expr_mat)
+  
+  all_gene_ephys_pairs = expand.grid(ephys_var_names, colnames(use_expr_mat)) %>% rename(ephys_prop = Var1, gene = Var2)
+  all_gene_ephys_pairs_str = all_gene_ephys_pairs %>% apply(., 1, paste, collapse = ' ')
+  
+  all_corrs = mclapply(all_gene_ephys_pairs_str, function(gene_ephys_pair){
+    
+    s = str_split(gene_ephys_pair, ' ')
+    ephys_var = s[[1]][1]
+    curr_gene = s[[1]][2]
+    
+    ephys_col = ephys_mat[, ephys_var]
+    
+    if (ephys_var %in% log_ephys_vars){
+      ephys_col = log10(ephys_col)
+    }
+    use_inds = !is.na(ephys_col)
+    t = wCorr::weightedCorr(x = use_expr_mat[use_inds, curr_gene], y = ephys_col[use_inds], method = 'Spearman', weights = weights[use_inds])
+    return(t)
+    
+  }, mc.cores = 40)
+  all_corrs = all_corrs %>% unlist
+  all_corrs = cbind(all_gene_ephys_pairs, 'corr' = all_corrs) %>% as.data.frame()
+  
+  # all_corrs = bind_rows(all_corrs) %>% select(gene, ephys_prop, correlation, p.value, fdr) %>% rename(corr = correlation, pval = p.value)
+  return(all_corrs)
+}
+# 
+# calculateExprEphysWeightedCorrSpearman = function(expr_mat, ephys_mat, weights, ephys_var_names, log_ephys_vars){
+#   
+#   # only perform calculation for genes with greater than 0 sd
+#   expr_mat_sd = apply(expr_mat, 2, sd)
+#   use_expr_mat = expr_mat[, expr_mat_sd > 0]
+#   
+#   # log10 transform expression data
+#   use_expr_mat = log2(use_expr_mat)
+#   
+#   all_gene_ephys_pairs = expand.grid(ephys_var_names, colnames(use_expr_mat)) %>% rename(ephys_prop = Var1, gene = Var2)
+#   all_gene_ephys_pairs_str = all_gene_ephys_pairs %>% apply(., 1, paste, collapse = ' ')
+#   
+#   all_corrs = mclapply(all_gene_ephys_pairs_str, function(gene_ephys_pair){
+#     
+#     s = str_split(gene_ephys_pair, ' ')
+#     ephys_var = s[[1]][1]
+#     curr_gene = s[[1]][2]
+#     
+#     ephys_col = ephys_mat[, ephys_var]
+#     
+#     if (ephys_var %in% log_ephys_vars){
+#       ephys_col = log10(ephys_col)
+#     }
+#     use_inds = !is.na(ephys_col)
+#     t = wCorr::weightedCorr(x = use_expr_mat[use_inds, curr_gene], y = ephys_col[use_inds], method = 'Spearman', weights = weights[use_inds])
+#     return(t)
+#     
+#   }, mc.cores = 40)
+#   all_corrs = all_corrs %>% unlist
+#   all_corrs = cbind(all_gene_ephys_pairs, 'corr' = all_corrs) %>% as.data.frame()
+#   
+#   # all_corrs = bind_rows(all_corrs) %>% select(gene, ephys_prop, correlation, p.value, fdr) %>% rename(corr = correlation, pval = p.value)
+#   return(all_corrs)
+# }
 
 
 # now aggregate lists of differentially expressed genes

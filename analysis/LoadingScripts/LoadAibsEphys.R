@@ -8,7 +8,7 @@ aibsEphys$transgene  = factor(aibsEphys$transgene)
 aibsEphys$NeuronType = aibsEphys$transgene
 aibsEphys = rename(aibsEphys, sample.name = transgene)
 aibsEphys$rmp = aibsEphys$vrest
-aibsEphys$rin = aibsEphys$input_resistance_mohm
+aibsEphys$rin = aibsEphys$ri
 aibsEphys$tau = aibsEphys$tau
 aibsEphys$apthr = aibsEphys$threshold_v_long_square
 aibsEphys$apamp = aibsEphys$peak_v_long_square - aibsEphys$threshold_v_long_square

@@ -26,11 +26,13 @@ aibs_med_exprs = rbind(aibs_med_exprs_broad, aibs_med_exprs_sub[c('Ndnf_on', 'Sn
 #### calculate expected marker sums in Zeisel data
 print('Calculating marker expression for broad cell types in Zeisel')
 
+ZEISEL_NORM_FACTOR = 1E6
+
 
 zeisel_expr = zeiselExprDataDf %>% as.data.frame()
 colnames(zeisel_expr) = make.names(colnames(zeisel_expr))
 zeisel_expr_norm = zeisel_expr
-zeisel_expr_norm[, zeisel_gene_names %>% make.names] = zeisel_expr[, zeisel_gene_names %>% make.names] *1E6 / (zeisel_expr[, zeisel_gene_names %>% make.names] %>% rowSums )
+zeisel_expr_norm[, zeisel_gene_names %>% make.names] = zeisel_expr[, zeisel_gene_names %>% make.names] *ZEISEL_NORM_FACTOR / (zeisel_expr[, zeisel_gene_names %>% make.names] %>% rowSums )
 zeisel_expr_norm[, zeisel_gene_names %>% make.names] = zeisel_expr_norm[, zeisel_gene_names %>% make.names] + 1
 
 zeisel_expr_norm$contam_type = zeisel_expr_norm$norm_broad_type
@@ -131,6 +133,7 @@ for (i in 1:length(patch_seq_datasets)){
   patch_seq_datasets[[i]]$joined_df$num_genes =marker_sum_df$num_genes
   patch_seq_datasets[[i]]$joined_df$mt_gene_expr =marker_sum_df$mt_gene_expr
   patch_seq_datasets[[i]]$joined_df$dissoc_corr =marker_sum_df$dissoc_corr
+  patch_seq_datasets[[i]]$joined_df$weights =marker_sum_df$dissoc_corr
   
   patch_seq_datasets[[i]]$contam_scores = marker_sum_df# %>% select(one_of(c('cell_id', names(fullMarkerList))))
   rownames(patch_seq_datasets[[i]]$contam_scores) = dataset$joined_df$cell_id
